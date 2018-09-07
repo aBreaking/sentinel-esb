@@ -12,6 +12,7 @@ public class BaseSentinel {
 
     public Entry entryFlowRule(String flowResource, String origin) throws BlockException {
         if(sentinelRuleConfig.isFlowRuleOpen()){
+            //可能还得改变下策略，当第一次调用时，就不进入entry了，返回enrty = null，即可
             if(!sentinelRuleConfig.containsFlowResource(flowResource)){
                 sentinelRuleConfig.configFlowRule(flowResource,origin);
             }
@@ -22,9 +23,10 @@ public class BaseSentinel {
     }
 
     public Entry entryDegradeRule(String degradeResource) throws BlockException {
-        if(sentinelRuleConfig.isDegradeRuleOpen()){            if(!sentinelRuleConfig.containsDegradeResources(degradeResource)){
-            sentinelRuleConfig.configDegradeRule(degradeResource);
-        }
+        if(sentinelRuleConfig.isDegradeRuleOpen()){
+            if(!sentinelRuleConfig.containsDegradeResources(degradeResource)){
+                sentinelRuleConfig.configDegradeRule(degradeResource);
+            }
             return SphU.entry(degradeResource);
         }
         return null;

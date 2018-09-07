@@ -33,13 +33,13 @@ public class SentinelServlet extends HttpServlet {
             //sentinel/open/flow
             sentinelRuleConfig.switchRule(rule,operate);
             //TODO 修改成功的提示操作有待  友好优化
-            response.getWriter().println("修改了");
+            response.getWriter().println("update success");
         }else{
             //进行规则修改等操作
             //sentinel/update/flow?count=XX
             String countStr = request.getParameter("count");
-            double count = StringUtil.isNotBlank(countStr)?Double.parseDouble(countStr): RuleConst.FLOW_QPS;
             String twStr = request.getParameter("timewindow");
+            double count = StringUtil.isNotBlank(countStr)?Double.parseDouble(countStr):"flow".equals(rule)?RuleConst.FLOW_QPS:RuleConst.DEGRADE_GRADE;
             int timewindow = StringUtil.isNotBlank(twStr)?Integer.parseInt(twStr):RuleConst.DEGRADE_TIMEWINDOW;
             List list = sentinelRuleConfig.updateRule(rule, count, timewindow);
             response.getWriter().println(list);
@@ -52,8 +52,9 @@ public class SentinelServlet extends HttpServlet {
         if("show".equals(operate)||"get".equals(operate)){
             List rules = sentinelRuleConfig.getRules(rule);
             response.getWriter().println(rules);
-        }else{
-            response.getWriter().println("url输入有误");
+        }else if("all".equals(operate)){
+            Map map = "flow".equals(rule)?RuleConst.allFlowRules():RuleConst.allDegradeRules();
+            response.getWriter().println(map.toString().replaceAll("=", ":"));
         }
 
     }
@@ -65,5 +66,11 @@ public class SentinelServlet extends HttpServlet {
         String[] ops = sentinelUri.split("/");
         operate = ops[1];
         rule = ops[2];
+    }
+
+    public static void main(String args[]){
+        Map map = RuleConst.allFlowRules();
+        String s = map.toString().replaceAll("=", ":");
+        System.out.println(s);
     }
 }

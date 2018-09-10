@@ -28,8 +28,8 @@ public class SentinelServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         parseRequest(request);
         Map<String, String[]> parameterMap = request.getParameterMap();
-        if(parameterMap.isEmpty()){
-            //目前仅用于开关的操作，仅限制于post请求
+        if(operate.equals("close")||operate.equals("open")){
+            //目前开关的操作，仅限制于post请求
             //sentinel/open/flow
             sentinelRuleConfig.switchRule(rule,operate);
             //TODO 修改成功的提示操作有待  友好优化
@@ -39,10 +39,18 @@ public class SentinelServlet extends HttpServlet {
             //sentinel/update/flow?count=XX
             String countStr = request.getParameter("count");
             String twStr = request.getParameter("timewindow");
+            String intervalStr = request.getParameter("interval");
             double count = StringUtil.isNotBlank(countStr)?Double.parseDouble(countStr):"flow".equals(rule)?RuleConst.FLOW_QPS:RuleConst.DEGRADE_GRADE;
             int timewindow = StringUtil.isNotBlank(twStr)?Integer.parseInt(twStr):RuleConst.DEGRADE_TIMEWINDOW;
-            List list = sentinelRuleConfig.updateRule(rule, count, timewindow);
-            response.getWriter().println(list);
+
+            if(StringUtil.isBlank(intervalStr)){
+                sentinelRuleConfig.updateRule(rule,count,timewindow);
+            }else{
+                int interval = StringUtil.isNotBlank(intervalStr)?Integer.parseInt(intervalStr):RuleConst.FLOW_INTERVAL;
+                sentinelRuleConfig.updateRule(rule, count, timewindow,interval);
+            }
+            response.getWriter().println("success");
+
         }
     }
 

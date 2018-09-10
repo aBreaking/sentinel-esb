@@ -48,4 +48,8 @@ public class RuleResources {
     public void addDegradeResource(String degradeResource){
         degradeResources.add(degradeResource);
     }
+
+    public void resetFlowResource(){
+        this.flowResources = new ArrayList<String>();
+    }
 }

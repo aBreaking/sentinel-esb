@@ -32,7 +32,10 @@ import com.alibaba.csp.sentinel.slots.statistic.metric.Metric;
 public class StatisticNode implements Node {
 
     private transient Metric rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.sampleCount,
-        IntervalProperty.INTERVAL);
+            IntervalProperty.INTERVAL);
+
+    private transient Metric rollingCounterInSecond4Flow = new ArrayMetric(1000 / SampleCountProperty.sampleCount,
+            IntervalProperty.FLOW_INTERVAL);
 
     private transient Metric rollingCounterInMinute = new ArrayMetric(1000, 2 * 60);
 
@@ -60,7 +63,8 @@ public class StatisticNode implements Node {
 
     @Override
     public void reset() {
-        rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.sampleCount, IntervalProperty.INTERVAL);
+        rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.sampleCount,IntervalProperty.INTERVAL);
+        rollingCounterInSecond4Flow = new ArrayMetric(1000 / SampleCountProperty.sampleCount, IntervalProperty.FLOW_INTERVAL);
     }
 
     @Override
@@ -111,7 +115,7 @@ public class StatisticNode implements Node {
 
     @Override
     public long passQps() {
-        return rollingCounterInSecond.pass() / IntervalProperty.INTERVAL;
+        return rollingCounterInSecond4Flow.pass() / IntervalProperty.INTERVAL;
     }
 
     @Override
@@ -148,6 +152,7 @@ public class StatisticNode implements Node {
     public void addPassRequest() {
         rollingCounterInSecond.addPass();
         rollingCounterInMinute.addPass();
+        rollingCounterInSecond4Flow.addPass();
     }
 
     @Override

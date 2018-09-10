@@ -19,6 +19,7 @@ import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.property.PropertyListener;
 import com.alibaba.csp.sentinel.property.SentinelProperty;
 import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
+import com.alibaba.csp.sentinel.slots.statistic.StatisticSlot;
 
 /***
  * QPS statistics interval.
@@ -30,31 +31,32 @@ public class IntervalProperty {
 
     public static volatile int INTERVAL = 1;
 
+    //定义了FLOW_INTERVAL，专用于进行流量控制的  时间周期的规则。
+    public static volatile int FLOW_INTERVAL = 1;
+
     public static void init(SentinelProperty<Integer> dataSource) {
         dataSource.addListener(new FlowIntervalPropertyListener());
     }
-
     private static class FlowIntervalPropertyListener implements PropertyListener<Integer> {
-        @Override
+
         public void configUpdate(Integer value) {
             if (value == null) {
                 value = 1;
             }
-            INTERVAL = value;
-            RecordLog.info("Init flow interval: " + INTERVAL);
+            //目前只是想先动态修改FLOW_INTERVAL，下同
+            FLOW_INTERVAL = value;
+            RecordLog.info("Init flow interval: " + FLOW_INTERVAL);
         }
 
-        @Override
         public void configLoad(Integer value) {
             if (value == null) {
                 value = 1;
             }
-            INTERVAL = value;
+            FLOW_INTERVAL = value;
             for (ClusterNode node : ClusterBuilderSlot.getClusterNodeMap().values()) {
                 node.reset();
             }
-            RecordLog.info("Flow interval change received: " + INTERVAL);
+            RecordLog.info("Flow interval change received: " + FLOW_INTERVAL);
         }
     }
-
 }

@@ -13,6 +13,7 @@ public class RuleConst {
     public static boolean FLOW_OPEN = true;
     public static int FLOW_GRADE = RuleConstant.FLOW_GRADE_QPS;
     public static double FLOW_QPS = 10;
+    public static int FLOW_INTERVAL = 1;
 
     public static boolean DEGRADE_OPEN = true;
     public static int DEGRADE_GRADE = RuleConstant.DEGRADE_GRADE_EXCEPTION;
@@ -25,6 +26,7 @@ public class RuleConst {
         flowMap.put("open",FLOW_OPEN);
         flowMap.put("grade",FLOW_GRADE);
         flowMap.put("qps",FLOW_QPS);
+        flowMap.put("interval",FLOW_INTERVAL);
         return flowMap;
     }
 
@@ -37,4 +39,5 @@ public class RuleConst {
         degradeMap.put("timewindow",DEGRADE_TIMEWINDOW);
         return degradeMap;
     }
+
 }

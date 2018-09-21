@@ -37,18 +37,20 @@ public class SentinelServlet extends HttpServlet {
         }else{
             //进行规则修改等操作
             //sentinel/update/flow?count=XX
+            String srvName = request.getParameter("srvName"); //是否是指定的某个服务
             String countStr = request.getParameter("count");
             String twStr = request.getParameter("timewindow");
             String intervalStr = request.getParameter("interval");
-            double count = StringUtil.isNotBlank(countStr)?Double.parseDouble(countStr):"flow".equals(rule)?RuleConst.FLOW_QPS:RuleConst.DEGRADE_GRADE;
-            int timewindow = StringUtil.isNotBlank(twStr)?Integer.parseInt(twStr):RuleConst.DEGRADE_TIMEWINDOW;
-
-            if(StringUtil.isBlank(intervalStr)){
-                sentinelRuleConfig.updateRule(rule,count,timewindow);
-            }else{
-                int interval = StringUtil.isNotBlank(intervalStr)?Integer.parseInt(intervalStr):RuleConst.FLOW_INTERVAL;
-                sentinelRuleConfig.updateRule(rule, count, timewindow,interval);
+            String resource = request.getParameter("resource");
+            Double count =StringUtil.isNotBlank(countStr)?Double.parseDouble(countStr):null;
+            Integer timewindow = StringUtil.isNotBlank(twStr)?Integer.parseInt(twStr):null;
+            Integer interval = StringUtil.isNotBlank(intervalStr)?Integer.parseInt(intervalStr):null;
+            if(StringUtil.isNotBlank(srvName)){
+                sentinelRuleConfig.updateRule(rule ,resource,count,timewindow,interval);
+                response.getWriter().println("success");
+                return;
             }
+            sentinelRuleConfig.updateAllRule(rule, count, timewindow,interval);
             response.getWriter().println("success");
 
         }
@@ -77,8 +79,9 @@ public class SentinelServlet extends HttpServlet {
     }
 
     public static void main(String args[]){
-        Map map = RuleConst.allFlowRules();
-        String s = map.toString().replaceAll("=", ":");
-        System.out.println(s);
+        String countStr = "";
+        Double v = StringUtil.isNotBlank(countStr)?Double.parseDouble(countStr):null;
+        System.out.println(v);
     }
 }
+

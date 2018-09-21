@@ -99,6 +99,7 @@ public class FileRefreshableDataSource<T> extends AutoRefreshDataSource<String, 
         }
     }
 
+    @Override
     public String readSource() throws Exception {
         FileInputStream inputStream = null;
         try {

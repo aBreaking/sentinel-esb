@@ -24,7 +24,10 @@ import com.alibaba.csp.sentinel.context.Context;
 import com.alibaba.csp.sentinel.context.ContextUtil;
 import com.alibaba.csp.sentinel.node.ClusterNode;
 import com.alibaba.csp.sentinel.node.DefaultNode;
+import com.alibaba.csp.sentinel.node.IntervalProperty;
 import com.alibaba.csp.sentinel.node.Node;
+import com.alibaba.csp.sentinel.node.SampleCountProperty;
+import com.alibaba.csp.sentinel.property.DynamicSentinelProperty;
 import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotChain;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
@@ -94,7 +97,19 @@ public class ClusterBuilderSlot extends AbstractLinkedProcessorSlot<DefaultNode>
          * the specific origin.
          */
         if (!"".equals(context.getOrigin())) {
-            Node originNode = node.getClusterNode().getOriginNode(context.getOrigin());
+            Node originNode = null;
+            if(IntervalProperty.RESET){
+                Map<String,Integer> map = IntervalProperty.RESOURCE_INTERVAL;
+                String name = resourceWrapper.getName();
+                if(map.containsKey(name)){
+                    IntervalProperty.init(new DynamicSentinelProperty<Integer>(map.remove(name)));
+
+                    originNode = node.getClusterNode().resetOriginNode(context.getOrigin());
+                    IntervalProperty.RESET = !map.isEmpty();
+                }
+            }
+            originNode = originNode==null?node.getClusterNode().getOriginNode(context.getOrigin()):originNode;
+
             context.getCurEntry().setOriginNode(originNode);
         }
 
@@ -150,4 +165,14 @@ public class ClusterBuilderSlot extends AbstractLinkedProcessorSlot<DefaultNode>
         return clusterNodeMap;
     }
 
+    /**
+     * Reset all {@link ClusterNode}s. Reset is needed when {@link IntervalProperty#INTERVAL} or
+     * {@link SampleCountProperty#SAMPLE_COUNT} is changed.
+     */
+    public static void resetClusterNodes() {
+        for (ClusterNode node : clusterNodeMap.values()) {
+            node.reset();
+            node.resetFlowStatistic();
+        }
+    }
 }

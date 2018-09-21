@@ -1,7 +1,5 @@
 package com.sitech.esb.sentinel.rule;
-
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,6 +8,10 @@ import java.util.Map;
  * 在这里面先手动指定一些常量吧
  */
 public class RuleConst {
+
+    public static double MAX_FLOW_QPS = 9999;
+    public static double MIN_FLOW_QPS = 0;
+
     public static boolean FLOW_OPEN = true;
     public static int FLOW_GRADE = RuleConstant.FLOW_GRADE_QPS;
     public static double FLOW_QPS = 10;
@@ -17,8 +19,8 @@ public class RuleConst {
 
     public static boolean DEGRADE_OPEN = true;
     public static int DEGRADE_GRADE = RuleConstant.DEGRADE_GRADE_EXCEPTION;
-    public static double DEGRADE_RATIO = 0.2;
-    public static int DEGRADE_TIMEWINDOW = 5;
+    public static double DEGRADE_RATIO = 1;
+    public static int DEGRADE_TIMEWINDOW = 10;
 
 
     public static Map allFlowRules(){

@@ -31,12 +31,19 @@ import com.alibaba.csp.sentinel.slots.statistic.metric.Metric;
  */
 public class StatisticNode implements Node {
 
-    private transient Metric rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.sampleCount,
-            IntervalProperty.INTERVAL);
+    private transient volatile Metric rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.SAMPLE_COUNT,
+        IntervalProperty.INTERVAL);
 
-    private transient Metric rollingCounterInSecond4Flow = new ArrayMetric(1000 / SampleCountProperty.sampleCount,
+    private transient volatile Metric rollingCounterInSecond4Flow = new ArrayMetric(1000 / SampleCountProperty.SAMPLE_COUNT,
             IntervalProperty.FLOW_INTERVAL);
 
+    private transient volatile Metric rollingCounterInSecond4Degrade = new ArrayMetric(1000 / SampleCountProperty.SAMPLE_COUNT,
+            IntervalProperty.DEGRADE_INTERVAL);
+
+    /**
+     * Holds statistics of the recent 120 seconds. The windowLengthInMs is deliberately set to 1000 milliseconds,
+     * meaning each bucket per second, in this way we can get accurate statistics of each second.
+     */
     private transient Metric rollingCounterInMinute = new ArrayMetric(1000, 2 * 60);
 
     private AtomicInteger curThreadNum = new AtomicInteger(0);
@@ -48,23 +55,36 @@ public class StatisticNode implements Node {
         long currentTime = TimeUtil.currentTimeMillis();
         currentTime = currentTime - currentTime % 1000;
         Map<Long, MetricNode> metrics = new ConcurrentHashMap<Long, MetricNode>();
-        List<MetricNode> minutes = rollingCounterInMinute.details();
-        for (MetricNode node : minutes) {
+        List<MetricNode> nodesOfEverySecond = rollingCounterInMinute.details();
+        long newLastFetchTime = lastFetchTime;
+        for (MetricNode node : nodesOfEverySecond) {
             if (node.getTimestamp() > lastFetchTime && node.getTimestamp() < currentTime) {
-                if (node.getPassedQps() != 0 || node.getBlockedQps() != 0) {
+                if (node.getPassedQps() != 0
+                    || node.getBlockedQps() != 0
+                    || node.getSuccessQps() != 0
+                    || node.getException() != 0
+                    || node.getRt() != 0) {
                     metrics.put(node.getTimestamp(), node);
-                    lastFetchTime = node.getTimestamp();
+                    newLastFetchTime = Math.max(newLastFetchTime, node.getTimestamp());
                 }
             }
         }
+        lastFetchTime = newLastFetchTime;
 
         return metrics;
     }
 
     @Override
     public void reset() {
-        rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.sampleCount,IntervalProperty.INTERVAL);
-        rollingCounterInSecond4Flow = new ArrayMetric(1000 / SampleCountProperty.sampleCount, IntervalProperty.FLOW_INTERVAL);
+        rollingCounterInSecond = new ArrayMetric(1000 / SampleCountProperty.SAMPLE_COUNT, IntervalProperty.INTERVAL);
+    }
+
+    public void resetFlowStatistic(){
+        rollingCounterInSecond4Flow = new ArrayMetric(1000 / SampleCountProperty.SAMPLE_COUNT,IntervalProperty.FLOW_INTERVAL);
+    }
+
+    public void resetDegradeStatistic(){
+        rollingCounterInSecond4Degrade = new ArrayMetric(1000 / SampleCountProperty.SAMPLE_COUNT,IntervalProperty.DEGRADE_INTERVAL);
     }
 
     @Override
@@ -80,7 +100,7 @@ public class StatisticNode implements Node {
 
     @Override
     public long blockedQps() {
-        return rollingCounterInSecond.block() / IntervalProperty.INTERVAL;
+        return rollingCounterInSecond4Degrade.block() / IntervalProperty.INTERVAL;
     }
 
     @Override
@@ -105,7 +125,7 @@ public class StatisticNode implements Node {
 
     @Override
     public long exceptionQps() {
-        return rollingCounterInSecond.exception() / IntervalProperty.INTERVAL;
+        return rollingCounterInSecond4Degrade.exception() / IntervalProperty.INTERVAL;
     }
 
     @Override
@@ -120,12 +140,12 @@ public class StatisticNode implements Node {
 
     @Override
     public long successQps() {
-        return rollingCounterInSecond.success() / IntervalProperty.INTERVAL;
+        return rollingCounterInSecond4Degrade.success() / IntervalProperty.INTERVAL;
     }
 
     @Override
     public long maxSuccessQps() {
-        return rollingCounterInSecond.maxSuccess() * SampleCountProperty.sampleCount;
+        return rollingCounterInSecond.maxSuccess() * SampleCountProperty.SAMPLE_COUNT;
     }
 
     @Override
@@ -153,6 +173,7 @@ public class StatisticNode implements Node {
         rollingCounterInSecond.addPass();
         rollingCounterInMinute.addPass();
         rollingCounterInSecond4Flow.addPass();
+        rollingCounterInSecond4Degrade.addPass();
     }
 
     @Override
@@ -162,18 +183,25 @@ public class StatisticNode implements Node {
 
         rollingCounterInMinute.addSuccess();
         rollingCounterInMinute.addRT(rt);
+
+        rollingCounterInSecond4Degrade.addSuccess();
+        rollingCounterInSecond4Degrade.addRT(rt);
     }
 
     @Override
     public void increaseBlockedQps() {
         rollingCounterInSecond.addBlock();
         rollingCounterInMinute.addBlock();
+
+        rollingCounterInSecond4Degrade.addBlock();
     }
 
     @Override
     public void increaseExceptionQps() {
         rollingCounterInSecond.addException();
         rollingCounterInMinute.addException();
+
+        rollingCounterInSecond4Degrade.addException();
 
     }
 
@@ -190,5 +218,7 @@ public class StatisticNode implements Node {
     @Override
     public void debug() {
         rollingCounterInSecond.debugQps();
+
+        rollingCounterInSecond4Degrade.debugQps();
     }
 }

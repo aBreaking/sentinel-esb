@@ -5,6 +5,9 @@ import java.util.List;
 
 /**
  * Created by liwei on 2018/8/29.
+ * saved all flowResources and degradeResources,in accord with FlowRuleManager or DegradeRuleManager
+ * for the esb, the flowResource comprises host and server name
+ * the degradeResource always comprises server name
  */
 public class RuleResources {
     private List<String> flowResources ;
@@ -13,8 +16,6 @@ public class RuleResources {
     /**
      * TODO 担心一个问题，当RuleManager中的规则过多时，会不会有影响呢
      */
-
-
 
     private static volatile RuleResources ruleResources;
     private RuleResources(){
@@ -51,5 +52,22 @@ public class RuleResources {
 
     public void resetFlowResource(){
         this.flowResources = new ArrayList<String>();
+    }
+
+
+    public List<String> getFlowResources() {
+        return flowResources;
+    }
+
+    public void setFlowResources(List<String> flowResources) {
+        this.flowResources = flowResources;
+    }
+
+    public List<String> getDegradeResources() {
+        return degradeResources;
+    }
+
+    public void setDegradeResources(List<String> degradeResources) {
+        this.degradeResources = degradeResources;
     }
 }

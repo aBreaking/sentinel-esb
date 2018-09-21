@@ -80,6 +80,27 @@ public class ClusterNode extends StatisticNode {
         return statisticNode;
     }
 
+    /**
+     * 重置某个node 的Statistic信息
+     * @param origin
+     * @return
+     */
+    public Node resetOriginNode(String origin) {
+        try {
+            lock.lock();
+            StatisticNode statisticNode  = new StatisticNode();
+            HashMap<String, StatisticNode> newMap = new HashMap<String, StatisticNode>(
+                    originCountMap.size() + 1);
+            newMap.putAll(originCountMap);
+            newMap.put(origin, statisticNode);
+            originCountMap = newMap;
+            return statisticNode;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+
     public synchronized HashMap<String, StatisticNode> getOriginCountMap() {
         return originCountMap;
     }

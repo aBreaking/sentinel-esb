@@ -16,47 +16,68 @@
 package com.alibaba.csp.sentinel.node;
 
 import com.alibaba.csp.sentinel.log.RecordLog;
-import com.alibaba.csp.sentinel.property.PropertyListener;
 import com.alibaba.csp.sentinel.property.SentinelProperty;
+import com.alibaba.csp.sentinel.property.SimplePropertyListener;
 import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
-import com.alibaba.csp.sentinel.slots.statistic.StatisticSlot;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /***
  * QPS statistics interval.
  *
  * @author youji.zj
  * @author jialiang.linjl
+ * @author CarpenterLee
  */
 public class IntervalProperty {
 
+    /**
+     * <p>
+     * Interval in seconds. This variable determines sensitivity of the QPS calculation.
+     * </p>
+     * DO NOT MODIFY this value directly, use {@link #updateInterval(int)}, otherwise the modification will not
+     * take effect.
+     */
     public static volatile int INTERVAL = 1;
 
-    //定义了FLOW_INTERVAL，专用于进行流量控制的  时间周期的规则。
+
+    //控制全局的flow Interval
     public static volatile int FLOW_INTERVAL = 1;
 
-    public static void init(SentinelProperty<Integer> dataSource) {
-        dataSource.addListener(new FlowIntervalPropertyListener());
-    }
-    private static class FlowIntervalPropertyListener implements PropertyListener<Integer> {
+    //控制全局的degrade Interval
+    public static volatile int DEGRADE_INTERVAL = 10;
 
-        public void configUpdate(Integer value) {
-            if (value == null) {
-                value = 1;
-            }
-            //目前只是想先动态修改FLOW_INTERVAL，下同
-            FLOW_INTERVAL = value;
-            RecordLog.info("Init flow interval: " + FLOW_INTERVAL);
-        }
+    public static boolean RESET = false;
+    public static Map<String,Integer> RESOURCE_INTERVAL = new HashMap<String, Integer>();
 
-        public void configLoad(Integer value) {
-            if (value == null) {
-                value = 1;
+    public static void init(SentinelProperty<Integer> property) {
+        property.addListener(new SimplePropertyListener<Integer>() {
+
+            public void configUpdate(Integer value) {
+                if (value != null) {
+                    updateInterval(value);
+                }
             }
-            FLOW_INTERVAL = value;
-            for (ClusterNode node : ClusterBuilderSlot.getClusterNodeMap().values()) {
-                node.reset();
-            }
-            RecordLog.info("Flow interval change received: " + FLOW_INTERVAL);
-        }
+        });
     }
+
+    /**
+     * Update the {@link #INTERVAL}, All {@link ClusterNode}s will be reset if newInterval is
+     * different from {@link #INTERVAL}
+     *
+     * 目前只是先针对流量控制的Interval 进行控制，熔断功能有待确认
+     *
+     * @param newInterval New interval to set.
+     */
+    public static void updateInterval(int newInterval) {
+        if (newInterval != FLOW_INTERVAL) {
+            FLOW_INTERVAL = newInterval;
+            RESET = true;
+            ClusterBuilderSlot.resetClusterNodes();
+        }
+        RecordLog.info("Flow INTERVAL updated to: " + FLOW_INTERVAL);
+    }
+
+
 }

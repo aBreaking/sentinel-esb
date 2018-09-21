@@ -57,7 +57,7 @@ public class DegradeRule extends AbstractRule {
     private static final int RT_MAX_EXCEED_N = 5;
 
     private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(
-            Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("sentinel-degrade-reset-task", true));
+        Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("sentinel-degrade-reset-task", true));
 
     /**
      * RT threshold or exception ratio threshold count.
@@ -151,8 +151,8 @@ public class DegradeRule extends AbstractRule {
         return result;
     }
 
+    @Override
     public boolean passCheck(Context context, DefaultNode node, int acquireCount, Object... args) {
-
         if (cut) {
             return false;
         }
@@ -178,9 +178,10 @@ public class DegradeRule extends AbstractRule {
             double success = clusterNode.successQps();
             long total = clusterNode.totalQps();
             // if total qps less than RT_MAX_EXCEED_N, pass.
-            if (total < RT_MAX_EXCEED_N) {
+            /*if (total < RT_MAX_EXCEED_N) {
                 return true;
-            }
+            }*/
+
             double realSuccess = success - exception;
             if (realSuccess <= 0 && exception < RT_MAX_EXCEED_N) {
                 return true;
@@ -195,7 +196,7 @@ public class DegradeRule extends AbstractRule {
             if (!cut) {
                 // Automatically degrade.
                 cut = true;
-                ResetTask resetTask = new ResetTask(this);
+                ResetTask resetTask = new ResetTask(this,clusterNode);
                 pool.schedule(resetTask, timeWindow, TimeUnit.SECONDS);
             }
 
@@ -206,24 +207,27 @@ public class DegradeRule extends AbstractRule {
     @Override
     public String toString() {
         return "DegradeRule{" +
-                "resource=" + getResource() +
-                ", grade=" + grade +
-                ", count=" + count +
-                ", limitApp=" + getLimitApp() +
-                ", timeWindow=" + timeWindow +
-                "}";
+            "resource=" + getResource() +
+            ", grade=" + grade +
+            ", count=" + count +
+            ", limitApp=" + getLimitApp() +
+            ", timeWindow=" + timeWindow +
+            "}";
     }
 
     private static final class ResetTask implements Runnable {
 
         private DegradeRule rule;
+        private  ClusterNode clusterNode;
 
-        ResetTask(DegradeRule rule) {
+        ResetTask(DegradeRule rule,ClusterNode clusterNode) {
             this.rule = rule;
+            this.clusterNode = clusterNode;
         }
 
-
+        @Override
         public void run() {
+            clusterNode.resetDegradeStatistic();
             rule.getPassCount().set(0);
             rule.setCut(false);
         }

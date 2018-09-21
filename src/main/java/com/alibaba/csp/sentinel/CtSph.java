@@ -23,11 +23,11 @@ import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.context.Context;
 import com.alibaba.csp.sentinel.context.ContextUtil;
 import com.alibaba.csp.sentinel.context.NullContext;
-import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.slotchain.MethodResourceWrapper;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotChain;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
+import com.alibaba.csp.sentinel.slotchain.SlotChainProvider;
 import com.alibaba.csp.sentinel.slotchain.StringResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.Rule;
@@ -48,10 +48,50 @@ public class CtSph implements Sph {
      * Same resource({@link ResourceWrapper#equals(Object)}) will share the same
      * {@link ProcessorSlotChain}, no matter in which {@link Context}.
      */
-    private static Map<ResourceWrapper, ProcessorSlotChain> chainMap
+    private static volatile Map<ResourceWrapper, ProcessorSlotChain> chainMap
         = new HashMap<ResourceWrapper, ProcessorSlotChain>();
 
     private static final Object LOCK = new Object();
+
+    private AsyncEntry asyncEntryInternal(ResourceWrapper resourceWrapper, int count, Object... args) throws BlockException {
+        Context context = ContextUtil.getContext();
+        if (context instanceof NullContext) {
+            // Init the entry only. No rule checking will occur.
+            return new AsyncEntry(resourceWrapper, null, context);
+        }
+        if (context == null) {
+            context = MyContextUtil.myEnter(Constants.CONTEXT_DEFAULT_NAME, "", resourceWrapper.getType());
+        }
+
+        // Global switch is turned off, so no rule checking will be done.
+        if (!Constants.ON) {
+            return new AsyncEntry(resourceWrapper, null, context);
+        }
+
+        ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
+
+        // Means processor cache size exceeds {@link Constants.MAX_SLOT_CHAIN_SIZE}, so no rule checking will be done.
+        if (chain == null) {
+            return new AsyncEntry(resourceWrapper, null, context);
+        }
+
+        AsyncEntry asyncEntry = new AsyncEntry(resourceWrapper, chain, context);
+        try {
+            chain.entry(context, resourceWrapper, null, count, args);
+            // Initiate the async context.
+            asyncEntry.initAsyncContext();
+        } catch (BlockException e1) {
+            asyncEntry.exit(count, args);
+            throw e1;
+        } catch (Throwable e1) {
+            RecordLog.info("Sentinel unexpected exception", e1);
+        } finally {
+            // The asynchronous call may take time in background, and current context should not be hanged on it.
+            // So we need to remove current async entry from current context.
+            asyncEntry.cleanCurrentEntryInLocal();
+        }
+        return asyncEntry;
+    }
 
     /**
      * Do all {@link Rule}s checking about the resource.
@@ -88,8 +128,8 @@ public class CtSph implements Sph {
         ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
 
         /*
-         * Means processor size exceeds {@link Constants.MAX_ENTRY_SIZE}, no
-         * rule checking will do.
+         * Means processor cache size exceeds {@link Constants.MAX_SLOT_CHAIN_SIZE}, so no
+         * rule checking will be done.
          */
         if (chain == null) {
             return new CtEntry(resourceWrapper, null, context);
@@ -102,7 +142,7 @@ public class CtSph implements Sph {
             e.exit(count, args);
             throw e1;
         } catch (Throwable e1) {
-            RecordLog.info("sentinel unexpected exception", e1);
+            RecordLog.info("Sentinel unexpected exception", e1);
         }
         return e;
     }
@@ -133,9 +173,8 @@ public class CtSph implements Sph {
                         return null;
                     }
 
-                    chain = Env.slotsChainbuilder.build();
-                    HashMap<ResourceWrapper, ProcessorSlotChain> newMap
-                        = new HashMap<ResourceWrapper, ProcessorSlotChain>(
+                    chain = SlotChainProvider.newSlotChain();
+                    Map<ResourceWrapper, ProcessorSlotChain> newMap = new HashMap<ResourceWrapper, ProcessorSlotChain>(
                         chainMap.size() + 1);
                     newMap.putAll(chainMap);
                     newMap.put(resourceWrapper, chain);
@@ -144,68 +183,6 @@ public class CtSph implements Sph {
             }
         }
         return chain;
-    }
-
-    private static class CtEntry extends Entry {
-
-        protected Entry parent = null;
-        protected Entry child = null;
-        private ProcessorSlot<Object> chain;
-        private Context context;
-
-        CtEntry(ResourceWrapper resourceWrapper, ProcessorSlot<Object> chain, Context context) {
-            super(resourceWrapper);
-            this.chain = chain;
-            this.context = context;
-            parent = context.getCurEntry();
-            if (parent != null) {
-                ((CtEntry)parent).child = this;
-            }
-            context.setCurEntry(this);
-        }
-
-        @Override
-        public void exit(int count, Object... args) throws ErrorEntryFreeException {
-            trueExit(count, args);
-        }
-
-        @Override
-        protected Entry trueExit(int count, Object... args) throws ErrorEntryFreeException {
-            if (context != null) {
-                if (context.getCurEntry() != this) {
-                    // Clean previous call stack.
-                    CtEntry e = (CtEntry)context.getCurEntry();
-                    while (e != null) {
-                        e.exit(count, args);
-                        e = (CtEntry)e.parent;
-                    }
-                    throw new ErrorEntryFreeException(
-                        "The order of entry free is can't be paired with the order of entry");
-                } else {
-                    if (chain != null) {
-                        chain.exit(context, resourceWrapper, count, args);
-                    }
-                    // Modify the call stack.
-                    context.setCurEntry(parent);
-                    if (parent != null) {
-                        ((CtEntry)parent).child = null;
-                    }
-                    if (parent == null) {
-                        // Auto-created entry indicates immediate exit.
-                        ContextUtil.exit();
-                    }
-                    // Clean the reference of context in current entry to avoid duplicate exit.
-                    context = null;
-                }
-            }
-            return parent;
-
-        }
-
-        @Override
-        public Node getLastNode() {
-            return parent == null ? null : parent.getCurNode();
-        }
     }
 
     /**
@@ -275,5 +252,11 @@ public class CtSph implements Sph {
     public Entry entry(String name, EntryType type, int count, Object... args) throws BlockException {
         StringResourceWrapper resource = new StringResourceWrapper(name, type);
         return entry(resource, count, args);
+    }
+
+    @Override
+    public AsyncEntry asyncEntry(String name, EntryType type, int count, Object... args) throws BlockException {
+        StringResourceWrapper resource = new StringResourceWrapper(name, type);
+        return asyncEntryInternal(resource, count, args);
     }
 }

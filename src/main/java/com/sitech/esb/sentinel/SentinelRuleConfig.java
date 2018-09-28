@@ -23,6 +23,7 @@ public class SentinelRuleConfig {
 
     public synchronized void configFlowRule(String flowResource,String origin,double count,int grade) {
         if (!containsFlowResource(flowResource)) {
+
             ruleResources.addFlowResource(flowResource);
             ruleManager.addFlowRule(flowResource, origin,count,grade);
         }
@@ -30,6 +31,7 @@ public class SentinelRuleConfig {
 
     public synchronized void configDegradeRule(String degradeResource,double count,int grade,int timewindow){
         if(!containsDegradeResources(degradeResource)){
+
             ruleResources.addDegradeResource(degradeResource);
             ruleManager.addDegradeRule(degradeResource,count,grade,timewindow);
         }
@@ -59,13 +61,18 @@ public class SentinelRuleConfig {
             ruleManager.updateFlowRule(resource,count,interval);
         }
         if("degrade".equals(rule)){
+            updateFlowInterval(resource,interval);
             return ruleManager.updateDegradeRule(resource,count,timewindow);
         }
         return  null;
     }
 
     public void reloadFlowRules(){
-       ruleManager.registerFlowRules(ruleManager.getFlowRules());
+       ruleManager.registerFlowRules();
+    }
+
+    public void reloadDegradeRule(){
+        ruleManager.registerDegradeRules();
     }
 
 

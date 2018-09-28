@@ -59,6 +59,7 @@ public class DegradeRule extends AbstractRule {
     private static ScheduledExecutorService pool = Executors.newScheduledThreadPool(
         Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("sentinel-degrade-reset-task", true));
 
+
     /**
      * RT threshold or exception ratio threshold count.
      */
@@ -68,6 +69,8 @@ public class DegradeRule extends AbstractRule {
      * Degrade recover timeout (in seconds) when degradation occurs.
      */
     private int timeWindow;
+
+    private Integer interval;
 
     /**
      * Degrade strategy (0: average RT, 1: exception ratio).
@@ -116,6 +119,14 @@ public class DegradeRule extends AbstractRule {
         this.timeWindow = timeWindow;
     }
 
+    public Integer getInterval() {
+        return interval;
+    }
+
+    public void setInterval(Integer interval) {
+        this.interval = interval;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -151,7 +162,6 @@ public class DegradeRule extends AbstractRule {
         return result;
     }
 
-    @Override
     public boolean passCheck(Context context, DefaultNode node, int acquireCount, Object... args) {
         if (cut) {
             return false;
@@ -225,7 +235,6 @@ public class DegradeRule extends AbstractRule {
             this.clusterNode = clusterNode;
         }
 
-        @Override
         public void run() {
             clusterNode.resetDegradeStatistic();
             rule.getPassCount().set(0);

@@ -41,12 +41,11 @@ public class IntervalProperty {
      */
     public static volatile int INTERVAL = 1;
 
-
     //控制全局的flow Interval
-    public static volatile int FLOW_INTERVAL = 1;
+    public static int FLOW_INTERVAL = 1;
 
     //控制全局的degrade Interval
-    public static volatile int DEGRADE_INTERVAL = 10;
+    public static int DEGRADE_INTERVAL = 1;
 
     public static boolean RESET = false;
     public static Map<String,Integer> RESOURCE_INTERVAL = new HashMap<String, Integer>();
@@ -65,18 +64,16 @@ public class IntervalProperty {
     /**
      * Update the {@link #INTERVAL}, All {@link ClusterNode}s will be reset if newInterval is
      * different from {@link #INTERVAL}
-     *
-     * 目前只是先针对流量控制的Interval 进行控制，熔断功能有待确认
-     *
      * @param newInterval New interval to set.
      */
     public static void updateInterval(int newInterval) {
         if (newInterval != FLOW_INTERVAL) {
             FLOW_INTERVAL = newInterval;
+            DEGRADE_INTERVAL = newInterval;
             RESET = true;
             ClusterBuilderSlot.resetClusterNodes();
         }
-        RecordLog.info("Flow INTERVAL updated to: " + FLOW_INTERVAL);
+        RecordLog.info("Flow INTERVAL updated to: " + newInterval);
     }
 
 

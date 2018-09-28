@@ -165,7 +165,6 @@ public class FlowRule extends AbstractRule {
         this.interval = interval;
     }
 
-    @Override
     public boolean passCheck(Context context, DefaultNode node, int acquireCount, Object... args) {
         String limitApp = this.getLimitApp();
         if (limitApp == null) {

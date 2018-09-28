@@ -92,6 +92,7 @@ public class ClusterBuilderSlot extends AbstractLinkedProcessorSlot<DefaultNode>
         }
         node.setClusterNode(clusterNode);
 
+
         /*
          * if context origin is set, we should get or create a new {@link Node} of
          * the specific origin.
@@ -100,9 +101,9 @@ public class ClusterBuilderSlot extends AbstractLinkedProcessorSlot<DefaultNode>
             Node originNode = null;
             if(IntervalProperty.RESET){
                 Map<String,Integer> map = IntervalProperty.RESOURCE_INTERVAL;
-                String name = resourceWrapper.getName();
-                if(map.containsKey(name)){
-                    IntervalProperty.init(new DynamicSentinelProperty<Integer>(map.remove(name)));
+                String resourceName = resourceWrapper.getName();
+                if(map.containsKey(resourceName)){
+                    IntervalProperty.init(new DynamicSentinelProperty<Integer>(map.remove(resourceName)));
 
                     originNode = node.getClusterNode().resetOriginNode(context.getOrigin());
                     IntervalProperty.RESET = !map.isEmpty();

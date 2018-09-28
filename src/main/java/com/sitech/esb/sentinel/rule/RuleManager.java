@@ -1,7 +1,6 @@
 package com.sitech.esb.sentinel.rule;
 
 import com.alibaba.csp.sentinel.datasource.DataSource;
-import com.alibaba.csp.sentinel.node.IntervalProperty;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
@@ -51,7 +50,7 @@ public class RuleManager {
         return rule;
     }
 
-    public void addDegradeRule(String resource,double count,int grade,int timewindow){
+    public DegradeRule addDegradeRule(String resource,double count,int grade,int timewindow){
         if(degradeRules.isEmpty()){
             degradeRules = DegradeRuleManager.getRules().isEmpty()?new ArrayList<DegradeRule>():DegradeRuleManager.getRules();
         }
@@ -61,22 +60,8 @@ public class RuleManager {
         rule.setGrade(grade);
         rule.setTimeWindow(timewindow);
         degradeRules.add(rule);
-    }
-
-    /**
-     * 打开某个flowRule，恢复至默认值
-     * 关闭某个flowRule，qps调至最大
-     * @param resource
-     * @param open
-     */
-    public void switchFlowRule(String resource,boolean open){
-        double count = open?RuleConst.FLOW_QPS :RuleConst.MAX_FLOW_QPS;
-        updateFlowRule(resource,count,null);
-    }
-
-    public void switchDegradeRule(String resource,boolean open){
-        double count = open?RuleConst.DEGRADE_RATIO :1;
-        updateDegradeRule(resource,count,null);
+        ruleManager.loadDegradeRules(degradeRules);
+        return rule;
     }
 
 
@@ -87,7 +72,6 @@ public class RuleManager {
                     rule.setCount(count);
                 }
                 //FIXME 目前是将interval的修改放在SentinelRuleConfig里面的，日后需要考虑将INTERVAL 弄到这里面去
-
                 //不要每次修改
                 return rule;
             }
@@ -121,7 +105,7 @@ public class RuleManager {
                 rule.setCount(count);
             }
         }
-        registerFlowRules(rules);
+        registerFlowRules();
         return rules;
     }
 
@@ -135,7 +119,7 @@ public class RuleManager {
                 rule.setTimeWindow(timewindow);
             }
         }
-        registerDegradeRules(rules);
+        registerDegradeRules();
         return rules;
     }
 
@@ -145,16 +129,15 @@ public class RuleManager {
      * 为此，在初始化加载时，如第一次性将rules加载进来，请使用load方法，
      * 后续的rule的修改时，就尽量使用register方法了。
      * 使用register方法时，不要每次update都register，这样效率会很低下，先全部update完，再一次register
-     * @param rules
      */
-    public void registerFlowRules(List<FlowRule> rules){
+    public void registerFlowRules(){
         DataSource<String,List<FlowRule>> mrds = new MemRefreshaleDateSource<List<FlowRule>>(
-                new ConstParser(),rules);
+                new ConstParser(),this.flowRules);
         FlowRuleManager.register2Property(mrds.getProperty());
     }
-    public void registerDegradeRules(List<DegradeRule> rules){
+    public void registerDegradeRules(){
         DataSource<String,List<DegradeRule>> mrds = new MemRefreshaleDateSource<List<DegradeRule>>(
-                new ConstParser(),rules);
+                new ConstParser(),this.degradeRules);
         DegradeRuleManager.register2Property(mrds.getProperty());
     }
 

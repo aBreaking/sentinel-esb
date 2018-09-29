@@ -45,7 +45,7 @@ public class IntervalProperty {
     public static int FLOW_INTERVAL = 1;
 
     //控制全局的degrade Interval
-    public static int DEGRADE_INTERVAL = 1;
+    public static int DEGRADE_INTERVAL =1;
 
     public static boolean RESET = false;
     public static Map<String,Integer> RESOURCE_INTERVAL = new HashMap<String, Integer>();

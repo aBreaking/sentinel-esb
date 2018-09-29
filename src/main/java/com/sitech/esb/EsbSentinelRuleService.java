@@ -1,8 +1,10 @@
 package com.sitech.esb;
 
+import com.alibaba.csp.sentinel.node.ClusterNode;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
+import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
 import com.sitech.esb.sentinel.SentinelRuleConfig;
 import com.sitech.esb.sentinel.SentinelRuleService;
 
@@ -10,7 +12,8 @@ import javax.servlet.ServletRequest;
 import java.util.List;
 
 /**
- * author liwei_paas
+ * @author liwei_paas
+ * 对esb提供动态规则调整的位置
  * 对当前的sentinel里的规则进行各种操作，
  */
 public class EsbSentinelRuleService implements SentinelRuleService {
@@ -26,7 +29,8 @@ public class EsbSentinelRuleService implements SentinelRuleService {
             String resource = rule.getResource();
             if(sentinelRuleConfig.containsFlowResource(resource)){
                 //update
-                sentinelRuleConfig.updateRule("flow",resource,rule.getCount(),null,rule.getInterval());
+                //流控规则暂时没有grade把
+                sentinelRuleConfig.updateRule("flow",resource,null,rule.getCount(),null,rule.getInterval());
             }else{
                 //add
                 String[] split = resource.split(":");
@@ -46,13 +50,17 @@ public class EsbSentinelRuleService implements SentinelRuleService {
             String resource = rule.getResource();
             if(sentinelRuleConfig.containsDegradeResources(resource)){
               //update
-              sentinelRuleConfig.updateRule("degrade",resource,rule.getCount(),rule.getTimeWindow(),rule.getInterval());
+              sentinelRuleConfig.updateRule("degrade",resource,rule.getGrade(),rule.getCount(),rule.getTimeWindow(),rule.getInterval());
             }else{
               //add
-              sentinelRuleConfig.configDegradeRule(resource,rule.getCount(),rule.getGrade(),rule.getTimeWindow());
+              sentinelRuleConfig.configDegradeRule(resource,rule.getGrade(),rule.getCount(),rule.getTimeWindow());
             }
         }
         sentinelRuleConfig.reloadDegradeRule();
+    }
+
+    public void recoverDegradeRule(String resource){
+        sentinelRuleConfig.recoverDegradeRule(resource);
     }
 
 }

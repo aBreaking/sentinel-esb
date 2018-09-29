@@ -80,7 +80,7 @@ public class RuleManager {
     }
 
 
-    public DegradeRule updateDegradeRule(String resource,Double count,Integer timewindow){
+    public DegradeRule updateDegradeRule(String resource,Double count,Integer timewindow,Integer grade,Boolean cut){
         for (DegradeRule rule : degradeRules){
             if(resource.equals(rule.getResource())){
                 if(null!=count){
@@ -88,6 +88,15 @@ public class RuleManager {
                 }
                 if(null!=timewindow){
                     rule.setTimeWindow(timewindow);
+                }
+                if(null!=grade){
+                    rule.setGrade(grade);
+                }
+                if(null!=cut){
+                    if(!cut){
+                        rule.setCut(false);
+                        rule.getPassCount().set(0);
+                    }
                 }
 
                 //FIXME 考虑将INTERVAL 弄到这里面去

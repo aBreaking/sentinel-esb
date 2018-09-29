@@ -15,6 +15,7 @@
  */
 package com.alibaba.csp.sentinel.slots.block.degrade;
 
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -103,7 +104,7 @@ public class DegradeRule extends AbstractRule {
         return cut;
     }
 
-    private void setCut(boolean cut) {
+    public void setCut(boolean cut) {
         this.cut = cut;
     }
 
@@ -183,6 +184,11 @@ public class DegradeRule extends AbstractRule {
             if (passCount.incrementAndGet() < RT_MAX_EXCEED_N) {
                 return true;
             }
+        }else if(grade == RuleConstant.DEGRADE_GRADE_EC){
+            double exception = clusterNode.exceptionQps();
+            if(exception < count){
+                return true;
+            }
         } else {
             double exception = clusterNode.exceptionQps();
             double success = clusterNode.successQps();
@@ -208,6 +214,8 @@ public class DegradeRule extends AbstractRule {
                 cut = true;
                 ResetTask resetTask = new ResetTask(this,clusterNode);
                 pool.schedule(resetTask, timeWindow, TimeUnit.SECONDS);
+
+
             }
 
             return false;
@@ -241,5 +249,17 @@ public class DegradeRule extends AbstractRule {
             rule.setCut(false);
         }
     }
+
+    public static void stopResetTask(){
+        pool.shutdownNow();
+        pool = Executors.newScheduledThreadPool(
+                Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("sentinel-degrade-reset-task", true));
+
+    }
+
+
+
+
+
 }
 

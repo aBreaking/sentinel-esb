@@ -5,6 +5,10 @@ import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 
 import java.util.List;
 
+/**
+ * @author liwei_paas
+ * 对外i提供sentinel动态规则的接口
+ */
 public interface SentinelRuleService {
 
     /**
@@ -15,4 +19,5 @@ public interface SentinelRuleService {
     void saveOrUpdateFlowRules(List<FlowRule> rules);
     void saveOrUpdateDegradeRules(List<DegradeRule> rules);
 
+    void recoverDegradeRule(String resource);
 }

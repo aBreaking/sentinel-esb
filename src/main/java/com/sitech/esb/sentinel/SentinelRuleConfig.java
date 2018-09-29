@@ -1,4 +1,5 @@
 package com.sitech.esb.sentinel;
+import com.alibaba.csp.sentinel.node.ClusterNode;
 import com.alibaba.csp.sentinel.node.IntervalProperty;
 import com.alibaba.csp.sentinel.property.DynamicSentinelProperty;
 import com.alibaba.csp.sentinel.slots.block.Rule;
@@ -6,6 +7,7 @@ import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
+import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
 import com.sitech.esb.sentinel.rule.RuleConst;
 import com.sitech.esb.sentinel.rule.RuleManager;
 import com.sitech.esb.sentinel.rule.RuleResources;
@@ -29,22 +31,13 @@ public class SentinelRuleConfig {
         }
     }
 
-    public synchronized void configDegradeRule(String degradeResource,double count,int grade,int timewindow){
+    public synchronized void configDegradeRule(String degradeResource,int grade,double count,int timewindow){
         if(!containsDegradeResources(degradeResource)){
 
             ruleResources.addDegradeResource(degradeResource);
             ruleManager.addDegradeRule(degradeResource,count,grade,timewindow);
         }
     }
-
-    public void loadFlowRule(){
-        FlowRuleManager.loadRules(ruleManager.getFlowRules());
-    }
-
-    public void loadDegradeRule(){
-        DegradeRuleManager.loadRules(ruleManager.getDegradeRules());
-    }
-
 
     public boolean containsFlowResource(String resource){
         return ruleResources.containsFlowResource(resource);
@@ -54,7 +47,7 @@ public class SentinelRuleConfig {
         return ruleResources.containsDegradeResources(resource);
     }
 
-    public Rule updateRule(String rule,String resource,Double count,Integer timewindow,Integer interval){
+    public Rule updateRule(String rule,String resource,Integer grade,Double count,Integer timewindow,Integer interval){
         if("flow".equals(rule)){
             //FIXME 目前暂做到 将Interval放在外面，从而动态实现，先考虑如何放在FlowRule里面去
             updateFlowInterval(resource,interval);
@@ -62,7 +55,7 @@ public class SentinelRuleConfig {
         }
         if("degrade".equals(rule)){
             updateFlowInterval(resource,interval);
-            return ruleManager.updateDegradeRule(resource,count,timewindow);
+            return ruleManager.updateDegradeRule(resource,count,timewindow,grade,null);
         }
         return  null;
     }
@@ -75,57 +68,20 @@ public class SentinelRuleConfig {
         ruleManager.registerDegradeRules();
     }
 
-
-    public void addFlowRulesFirst(List<FlowRule> rules) throws IllegalAccessException {
-        if(ruleResources.getFlowResources().isEmpty()){
-            ArrayList<String> resources = new ArrayList<String>();
-            for(FlowRule flowRule : rules){
-                resources.add(flowRule.getResource());
-            }
-            ruleResources.setFlowResources(resources);
-            ruleManager.setFlowRules(rules);
-            ruleManager.loadFlowRules(rules);
-        }else{
-            throw new IllegalAccessException("ruleResources 包含有规则了,请第一次初始化规则时使用");
-        }
-
+    /**
+     * 恢复 某个规则
+     * 这里还有点复杂，不但需要将degradeRule的cut置为false，
+     * 还需要将统计重置，还得需要将degradeRule的resetTask给停掉
+     * @param resource
+     */
+    public void recoverDegradeRule(String resource){
+        ClusterNode clusterNode = ClusterBuilderSlot.getClusterNode(resource);
+        clusterNode.resetDegradeStatistic();
+        DegradeRule.stopResetTask();
+        ruleManager.updateDegradeRule(resource,null,null,null,false);
     }
 
 
-
-    public List updateAllRule(String rule,Double count,Integer timewindow,Integer interval){
-        if(interval!=null){
-            RuleConst.FLOW_INTERVAL = interval;
-            updateFlowInterval(rule,RuleConst.FLOW_INTERVAL);
-        }
-        return updateAllRule(rule,count,timewindow);
-    }
-
-    public List updateAllRule(String rule,Double count,Integer timewindow){
-        if("flow".equals(rule)){
-            RuleConst.FLOW_QPS = count;
-            List<FlowRule> rules = ruleManager.updateAllFlowRule(count);
-            return rules;
-        }
-        if("degrade".equals(rule)){
-            RuleConst.DEGRADE_RATIO = count;
-            RuleConst.DEGRADE_TIMEWINDOW = timewindow;
-
-            List<DegradeRule> rules = ruleManager.updateAllDegradeRule(count, timewindow);
-            return rules;
-        }
-        return null;
-    }
-
-    public void switchRule(String rule,String openOrClose){
-        Assert.objInRange(openOrClose, "open", "close");
-        if("flow".equals(rule)){
-            RuleConst.FLOW_OPEN  = "open".equals(openOrClose);
-        }
-        if("degrade".equals(rule)){
-            RuleConst.DEGRADE_OPEN = "open".equals(openOrClose);
-        }
-    }
 
     public void updateFlowInterval(String resource,Integer interval){
         if(null!=interval&&null!=resource){
@@ -145,13 +101,6 @@ public class SentinelRuleConfig {
         return null;
     }
 
-    public boolean isFlowRuleOpen(){
-        return RuleConst.FLOW_OPEN;
-    }
-
-    public boolean isDegradeRuleOpen(){
-        return  RuleConst.DEGRADE_OPEN;
-    }
 
     public List<String> getAllResources(String rule){
         return "flow".equals(rule)?ruleResources.getFlowResources():ruleResources.getDegradeResources();
